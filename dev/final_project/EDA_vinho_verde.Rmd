@@ -1,14 +1,15 @@
+---
+title: "Exploring Vinho Verde Wine Data in R"
+author: "Sarah Hosking"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: no
+---
+
 Exploring Vinho Verde wines by Sarah Hosking
 ========================================================
 
-> **Tip**: You will see quoted sections like this throughout the template to
-help you construct your report. Make sure that you remove these notes before
-you finish and submit your project!
-
-> **Tip**: One of the requirements of this project is that your code follows
-good formatting techniques, including limiting your lines to 80 characters or
-less. If you're using RStudio, go into Preferences \> Code \> Display to set up
-a margin line to help you keep track of this guideline!
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
 # Load all of the packages that you end up using in your analysis in this code
@@ -60,6 +61,32 @@ head(whites)
 
 ```
 
+# Data description
+
+   1 - fixed acidity: most acids involved with wine or fixed or nonvolatile (do not evaporate readily)
+
+   2 - volatile acidity: the amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste
+
+   3 - citric acid: found in small quantities, citric acid can add 'freshness' and flavor to wines
+
+   4 - residual sugar: the amount of sugar remaining after fermentation stops, it's rare to find wines with less than 1 gram/liter and wines with greater than 45 grams/liter are considered sweet
+
+   5 - chlorides: the amount of salt in the wine
+
+   6 - free sulfur dioxide: the free form of SO2 exists in equilibrium between molecular SO2 (as a dissolved gas) and bisulfite ion; it prevents microbial growth and the oxidation of wine
+
+   7 - total sulfur dioxide: amount of free and bound forms of S02; in low concentrations, SO2 is mostly undetectable in wine, but at free SO2 concentrations over 50 ppm, SO2 becomes evident in the nose and taste of wine
+
+   8 - density: the density of water is close to that of water depending on the percent alcohol and sugar content
+
+   9 - pH: describes how acidic or basic a wine is on a scale from 0 (very acidic) to 14 (very basic); most wines are between 3-4 on the pH scale
+
+   10 - sulphates: a wine additive which can contribute to sulfur dioxide gas (S02) levels, wich acts as an antimicrobial and antioxidant
+
+   11 - alcohol: the percent alcohol content of the wine
+
+   Output variable (based on sensory data): 
+   12 - quality (score between 0 and 10)
 
 # Univariate Plots Section
 
@@ -85,6 +112,7 @@ What are the variable names?
 names(whites)
 
 ```
+
 Let's see the underlying structure of the data.
 
 ```{r}
@@ -113,23 +141,6 @@ summary(whites)
 ```
 
 There are no NA values. Only `citric.acid` has zero values. The scale of values varies from the 100s for `total.sulfur.dioxide` to 1000th decimal place for `chlorides`.
-
-Let's see how many of each quality level?
-
-```{r quality_count}
-
-summary((whites$quality))
-qplot(quality, data=whites)
-
-
-```
-
-```{r quality_counts}
-
-summary(whites$quality)
-
-```
-A normal distribution: lots of mediocre wines with few low-quality and even fewer high-quality wines.
 
 Now I'd like to look at distributions, but first need to convert the df to long format.
 
@@ -215,6 +226,30 @@ max.rows <- colMaxIdx(whites[whites.num])
 
 Nope!
 
+# `quality`
+
+Let's see how many of each quality level?
+
+```{r quality_count}
+
+summary((whites$quality))
+qplot(quality, data=whites)
+
+
+```
+
+A normal distribution: lots of mediocre wines with few low-quality and even fewer high-quality wines. 
+
+With so many wines with a 6 rating, it might be easier to find patterns by grouping these scores into low-medium-high groups. 
+
+```{r group_quality}
+
+whites <- whites %>%
+  mutate(qual.grp = ifelse(as.integer(quality) < 6, 'low',
+                           ifelse(as.integer(quality) <7,'medium', 'high')))
+
+```
+
 ## `alcohol`
 
 
@@ -232,19 +267,20 @@ summary(whites$alcohol)
 ```
 
 Alcohol content ranges from `r min(whites$alcohol)` to `r max(whites$alcohol)`% by volume. 
-
 The distribution looks unusual, not just bimodal but multimodal. 
 The main mode is at 9.5%, but there are smaller, 'local' modes at 10.5% and 12% as well. 
 
 **Dip at 11.5%** 
 
 Regardless of binwidth, there was a clear dip at 11.5%. Why?
-Here is the likely explanation (it also explains the modes, max and min values):
 
-> The alcohol level of ‘generic’ Vinho Verde must lie between 8% and 11.5% ABV.  However, if the wine is labelled with one of the nine sub-regions, which specialise in particular grape varieties, the range extends from 9% to 14% ABV.  Additionally, Vinho Verde made from the single varietal Alvarinho can be between 11.5% and 14% ABV. 
-  -https://www.alcoholprofessor.com/blog/2014/04/23/vinho-verde-a-splash-of-summer-vinous-joy/ 
+This could be due to labelling rules:
 
-It would be worthwhile to create some categories based on alcohol content.
+* ‘generic’ Vinho Verde must lie between 8% and 11.5% alcohol by volume (ABV)
+* wine from one of the one of the nine sub-regions, which specialise in particular grape varieties, the range extends from 9% to 14% ABV
+* Vinho Verde made from the single varietal Alvarinho can be between 11.5% and 14% ABV
+
+[Reference](https://www.alcoholprofessor.com/blog/2014/04/23/vinho-verde-a-splash-of-summer-vinous-joy/)
 
 **Are alcohol values continuous or discrete?** 
 
@@ -259,10 +295,18 @@ ggplot(aes(alcohol), data=whites) +
 
 Alcohol content % is usually listed to the 10th of a percentage point. Round numbers, and .5 are more common than others.
 
-While I would love the break down `alcohol` according to whether a wine is generic, or an Alvarinho. However, as described above these are defined by overlapping alcohol limits. The alcohol levels for these sub-populations all overlap.
-Alcohol content % is usually listed to the 10th of a percentage point. Round numbers, and .5 are more common than others.
+It would be worthwhile to create some categorie variables based on alcohol content to see if quality correlations differ for different wine classifications.
 
-While I would love the break down `alcohol` according to whether a wine is generic, or an Alvarinho. However, as described above these are defined by overlapping alcohol limits. The alcohol levels for these sub-populations all overlap.
+
+```{r label_alchol_ranges}
+whites <- whites %>% 
+  mutate(alvarinho.range = ifelse(alcohol > 11.5, TRUE, FALSE), 
+         generic.range = ifelse(alcohol <=11.5, TRUE, FALSE),
+         subregion.range = ifelse(alcohol > 9, TRUE, FALSE))
+
+```
+
+
 
 ## `fixed.acidity`
 
@@ -290,7 +334,7 @@ p + scale_x_continuous(breaks=seq(3,14,1))
 
 ```
 
-`fixed.acidity` has a very slight negative but it is hard to see clearly on this plot. There seems to be some negative outliers too.
+`fixed.acidity` has a very slight negative skew but it is hard to see clearly on this plot. There seems to be some negative outliers too.
 
 Let's try a boxplot instead that also shows the underlying points.
 
@@ -301,8 +345,9 @@ ggplot(aes(x="1", y=fixed.acidity), data=whites) +
   
 ```
 
+Indeed, most values do fall between 6 and 7.5 g/l. But there is a cluster of low, 'flat-tasting' wines between 4 & 5, and a bigger cluster at the tart end of the scale, between 8.5 & 9.
 
-Indeed, there are both negative and positive outliers, but more positive ones and they also extend further. Call this a near-normal distribution.
+
 
 ##`volatile.acidity`
 
@@ -348,14 +393,13 @@ ggplot(whites, aes(x=1, y=volatile.acidity)) +
 summary(whites$citric.acid)
 
 qplot(citric.acid, data=whites, 
-      binwidth=.02, 
-      "")
+      binwidth=.02)
 
 ```
 
 The distribution for `citric acid` is normal with fewer positive outliers compared to the previous phytochemicals examined.
 
-After reducing the binwidth I noticed some strange spikes at 0, 0.5 and 0.7g/l, and even at 1g/l.
+After reducing the binwidth I noticed some strange spikes at 0, 0.5 and 0.75g/l, and even at 1g/l.
 
 Here is a possible explanation: 
 
@@ -364,6 +408,27 @@ Here is a possible explanation:
 And this is from a 2003 export agreement between Canada and the EU:
 
 > 15. addition of citric acid for wine stabilisation purposes, provided that the final content in the treated wine does not exceed 1 g/l, — http://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52003PC0377 (section B, item 15)
+
+## `sulphates`
+
+Sulphates stabilize wine, and are more important for white wines than reds, which also have tannins to help with stabilization.
+
+Maximum levels of sulfur dioxide that a wine can contain 210 mg/l for white wine, 260 mg/l for sweet wines (> 5g/l residual sugar). [source](http://adlib.everysite.co.uk/resources/000/264/146/euwineregs.pdf)
+
+```{r}
+
+qplot(sulphates, data=whites, binwidth = 0.025)
+
+```
+
+This also looks to be bi-modal and negatively skewed, with modes around 0.4 and 0.5. 
+
+```{r}
+
+summary(whites$sulphates)
+
+```
+
 
 ##`pH`
 
@@ -375,7 +440,7 @@ The lower the pH, the more acidic (instead of basic) the wine.
 summary(whites$pH)
 
 #pH:Perfectly normal!
-qplot(pH, data=whites, binwidth=.05, "") +
+qplot(pH, data=whites, binwidth=.05) +
   scale_x_continuous(breaks=seq(2,4.5,.25)) 
 
 ```
@@ -391,81 +456,64 @@ The entire range of `pH` values is from `r min(whites$pH)` to `r max(whites$pH)`
 > Sodium chloride is sometimes added during fining, especially when egg whites are used.- [Handbook of Enology, The Chemistry of Wine: Stabilization and Treatments](https://books.google.fr/books?id=a03C-aFy2jsC&pg=PA94&lpg=PA94&dq=adding+sodium+chloride+to+wine&source=bl&ots=pAoGDmfuTl&sig=AqMfDCikyNKXX__SWzFgWuvam5o&hl=en&sa=X&ved=0ahUKEwjfy4rx9KHLAhUGcHIKHZxSATcQ6AEIMTAD#v=onepage&q=adding%20sodium%20chloride%20to%20wine&f=false)
 
 
-```{r chlorides summary}
+```{r chlorides hist}
 
-summary(whites$chlorides)
-
-qplot(chlorides, data=whites, binwidth=.002, "")
+qplot(chlorides, data=whites, binwidth=.005)
 
 ```
 
 Negatively skewed with a particularly long tail. 
 
+```{r chlorides_summary}
+
+summary(whites$chlorides)
+
+```
+
+
 ```{r chloride log10}
 
 #look at that long tail
-qplot(chlorides, data=whites, binwidth=.001, "") +
+qplot(chlorides, data=whites, binwidth=.05) +
   scale_x_log10()
 
 ```
 
-Not much more info here. Will try a boxplot.
+This looks more balanced. Let's confirm with a boxplot.
 
 ```{r chlorides boxplot}
 
 ggplot(aes(x="1", y=chlorides), data=whites) +
-  geom_boxplot(width=0.5, alpha=0.8) + 
-  geom_point(position=position_jitter(width=0.4), 
-             alpha=0.2) 
+  geom_boxplot(width=0.5, alpha=0.2) + 
+  scale_y_log10()
 
 ```
 
 Transforming the x-axis to log10 shows that choloride values are discrete that beome continuous as chloride levels reach 0.3 g/l (300 mg/l) and a bit beyond. This is higher than normal, but still a far cry from 1 g/l.
 
-I suspect the region's notorious rain and mist in wintertime results in higher than usual salinity in the soil of coastal subregions, which is then absorbed by the grapes. 
+I wonder if the region's notorious rain and mist in wintertime results in higher than usual salinity in the soil of coastal subregions, which is then absorbed by the grapes. 
 
-##Density
+```{r log_xform_chlorides}
 
-Density is what makes wine feel full-bodied. Since VV wines are known for their lightness, I'd expect this dataset to be lower-density than your typical white wine dataset (if I had any to compare it to).
+whites <- whites %>% 
+  mutate(log10.chlorides = log10(chlorides))
 
-Higher density in wine is usually a result of higher sugar or higher alcohol content. 
-
-```{r}
-
-summary(whites$density)
-
-#D: similar to sugar, extreme pos outlier
-qplot(density, data=whites, binwidth=.0004) + 
-  scale_x_continuous(limits=c(0.985,1.005)) 
-
+  
 ```
-
-Not suprisingly, since it's related to sugar & alcohol, `density`'s distribution is a bit lumpy, but less than for `residual.sugar` and `alcohol`. It also has two extreme positive outliers, just like `residual.sugar`.
-
-```{r}
-
-qplot(density, data=whites, binwidth=.0002, "") + 
-  scale_x_log10(limits=c(0.985,1.005)) +
-  geom_density(colour='blue')
-
-```
-
-This doesn't help much.
 
 ##`residual.sugar`
 
-Residual sugar, or lack thereof, in wines can be a sign of a flaw - secondary fermentation. For VV wines, this is considered a feature rather than a flaw.
 
-> Outside of Champagne, secondary fermentation in the bottle is a serious problem for winemakers, and one that calls for careful precautions. Besides generating an unpleasant effervescence (bubbly isn’t always better, hate to say), the secondary fermentation cuts into the residual sugars and unbalances the wine. But it’s even worse when the dormant yeast wakes up and starts eating up the acids in the wine.
+```{r residual.sugar_hist}
 
-> This is called malolactic fermentation, and if it sounds familiar it’s because it is what gives new world Chardonnay that creamy, buttered-toast flavor. Unwanted malo is usually a serious concern, especially in white wines that rely on acidity for balance and texture, but the winemakers in Minho found that the ensuing slight fizziness caused by this flaw actually made the wine more palatable.-[badass-sommelier-lets-drink-some-vinho-verde](http://birthmoviesdeath.com/2013/08/16/badass-sommelier-lets-drink-some-vinho-verde)
+qplot(residual.sugar, data=whites, binwidth=1) +
+  scale_x_continuous(limits=c(0,25), breaks=seq(0,25,5))
 
-```{r residual.sugar summary}
+```
+
+```{r residual.sugar_summary}
 
 summary(whites$residual.sugar)
-
-qplot(residual.sugar, data=whites, binwidth=1, "") +
-  scale_x_continuous(limits=c(0,25), breaks=seq(0,25,5))
 
 ```
 
@@ -475,25 +523,87 @@ Let's look at this using a log10 x-axis.
 
 ```{r residual.sugar log10 plots}
 
-ggplot(aes(x=residual.sugar), data=whites) + 
-  geom_histogram(binwidth=.05)
-#+
-  #geom_density(color='blue') +
-  #scale_x_log10(breaks=seq(0,60,1))
+ggplot(aes(x=log(residual.sugar + 1), y=..density..), data=whites) + 
+  geom_histogram(binwidth=.1) +
+  geom_density(color='blue')
+  
 
 ```
 
-There are a few extreme outliers above 20. The distribution now looks like a camel: it has two humps. Are there two populations within this data set?
+There are a few extreme outliers above 20. The distribution now looks like a camel: it has two humps. 
 
-###Cutting by `residual.sugar`
+Are there two populations within this data set?
 
-```{r cut by residual.sugar, echo=TRUE}
+```{r residual.sugar_violin_plot}
 
-whites$rs.bucket <- cut(whites$residual.sugar, 
-                        breaks = c(0.6,3,9.9,65.9), 
-                        labels = c('low', 'med', 'high'))
+ggplot(aes(x=1, y=log10(residual.sugar)), data=whites) +
+  geom_violin(color='blue') + 
+  geom_jitter(alpha=0.2) +
+  geom_hline(yintercept = 0.5, color='blue')
+```
+
+Perhaps there is, so I'd like two new variables, one a log10 transform of residual.sugar, and the other a categorical variable for sweetness.
+
+```{r create_new_vars_residual.sugar}
+
+whites <- whites %>% 
+  mutate(log10.rs = log10(residual.sugar),
+         rs.level = ifelse(log10.rs > .5, 'high', 'low'))
 
 ```
+
+
+
+```{r}
+
+str(whites$rs.level)
+
+```
+
+## Density
+
+Density is what makes wine feel full-bodied. Since VV wines are known for their lightness, I'd expect this dataset to be lower-density than your typical white wine dataset (if I had any to compare it to).
+
+Higher density in wine is usually a result of higher sugar or higher alcohol content. 
+
+```{r density_hist}
+
+summary(whites$density)
+
+#D: similar to sugar, extreme pos outlier
+qplot(density, data=whites, binwidth=.0005) 
+
+
+```
+
+```{r density_boxplot}
+
+ggplot(aes(x="1", y=density), data=whites) +
+  geom_boxplot(width=0.5, alpha=0.2)
+
+```
+
+There are only 2 extreme outliers in that long tail. What does the distribution look like if we zoom in?
+
+```{r density_zoom_hist}
+
+qplot(density, data=whites, binwidth=.0005) + 
+  coord_cartesian(xlim=c(0.985,1.005))
+
+```
+
+
+Not suprisingly, since it's related to sugar & alcohol, `density`'s distribution is a bit lumpy, but less than for `residual.sugar` and `alcohol`. It also has two extreme positive outliers, just like `residual.sugar`.
+
+```{r}
+
+qplot(density, data=whites, binwidth=.0002) + 
+  scale_x_log10(limits=c(0.985,1.005)) +
+  geom_density(colour='blue')
+
+```
+
+This doesn't help much.
 
 
 # Univariate analysis
@@ -512,42 +622,54 @@ Wine with a residual sugar content greater than 45 is considered sweet. Only one
 
 ##What is/are the main feature(s) of interest in your dataset?
 
-The main feature I'm interested in are `alcohol`. The VV wine's alcohol content determines how specific a region can be used on its label. Usually, the more specific the location of the wine, the higher the price it commands.
+The features I'm most interested are the characteristics most easily perceived by judges:
 
-* Generic VV wines is between 8% and 11.5%
-* VV wine from one of the subregions (i.e. which limits which grape varieties are used in its wines) is between 9% and 14%.
-* Single-varietal Alvarinho is between 11.5% and 14%.
+* alcohol
+* residual.sugar
+* density (mouthfeel)
 
-I suspect as the region/varietal becomes more specific, its quality will go up.
+The main feature I'm interested in are `alcohol`. The VV wine's alcohol content determines how specific a region can be used on its label. Generally, the more narrower the region, the higher the price.
 
-The other key feature is `residual.sugar`. It plays a major part in flavour and density. Lower values could indicate secondary fermentation, which could either mean a wine that is pleasantly fizzy, or one that is more round and buttery instead of sharper and acidic. Or else it could be that it's failed to achieve either and is simply unbalanced. 
+The main question I have around alcohol is whether quality correlates to specificity of region? In other words, do generic Vinho Verde tend to score lower than the higher subsets of wine?
 
-`Chlorides` is of interest, because several VV wine reviews I read online spoke, in positive terms, of VV wines with noticeable hints of salt. This seems strange, but in my research I've learned that sodium chloride in wine (as opposite to other forms of sodium) creates a soapy taste in wine. While this doesn't sound appealing, it's true salt is often used to contrast sweetness in chocolate and caramel.
+The other key feature is `residual.sugar`. It plays a major part in flavour and density. Lower values could indicate secondary fermentation, which could either mean a wine that is pleasantly fizzy, or one that is more round and buttery instead of sharper and acidic. 
 
-More relevant to the data at hand, I've myself noticed a pleasantly and very subtle salty flavour to Txakoli wine, which has been compared to VV as it's from Spanish Basque country, a similarly lush, wet region by the Atlantic. 
-
-Lastly, `fixed.acidity` is of interest because one of the classic ways to describe a wine is "a nice balance of sweetness and acidity" or else a "nice balance of alcohol and acidity". Also, these are considered green wines: youthful, sharp, clean. All features I tend to associate with more acidity.
 
 ##What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
 
-`density`, because it provides the body, or "mouthfeel" for wine, which is also something you often hear discussed in wine reviews. It is also is correlated to sugar and alcohol.
+These features:
 
-Higher values of `volatile.acidity` could indicate wines that have oxidized and so help identify lower-quality wines.
+* citric.acid (freshness)
+* pH (acidity)
+* chlorides, because numerous articles about the wine referred to a refreshingly salty-sweet taste.
+
+Also, the features described in the section below will help identify different subsets for which quality correlates differently.
 
 ##Did you create any new variables from existing variables in the dataset?
 
-Yes, the irregularly-shaped distributions for `alcohol` and `residual.sugar` prompted me to create `a.bucket` and `rs.bucket` variables, which both have values of low, med, and high. These will make facet future plots simpler.
+Yes, I created categorical variables to: 
+
+* group quality into low-med-high buckets
+* label wines by alcohol range
+* label wines by sweetness
+
+I also transformed `residual.sugar` and `chlorides` into log10 values.
+
+```{r new_features}
+
+whites.new = names(whites)[c(-1:-13)]
+whites.new
+
+```
+
 
 ##Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
 
-Yes: `residual.sugar` and `alcohol`, and to a lesser extent, `density`. 
+Yes: 
 
-Tranforming `residual.sugar` with log10 revealed a bimodal distribution with a mode at 2, and another mode around 10. The second mode is harder to read. The density plot actually shows two bumps on this second mode. 
-
-To see if these represented two distinct wine populations within the dataset, I created two subsets, `whites.dry` and `whites.sweet`, with a `residual.sugar` value of 3g being the dividing line. 
-
-When I replotted the distributions for some key variables, those for `whites.dry` appeared more symmetrical than in the full dataset. Those for `whites.sweet`, however, didn't noticeably change shape.
-
+* `residual.sugar` and `chlorides` both had very long positive tails, so I created log10 transformations for them.
+* `alcohol` distribution was multi-modal that corresponded to wine labelling limits, so I created the categorical variables listed in the section above. 
+* the log of `residual.sugar` is bi-modal so I created the `rs.level` categorical variable.
 
 # Bivariate Plots Section
 
@@ -561,19 +683,463 @@ as well.
 
 ```
 
+What are the correlations? 
+
+```{r}
+
+whites.cor <- whites %>%
+  select(-X) %>% 
+  mutate(quality = as.integer(quality)) %>%
+  select_if(is.numeric) %>% 
+  cor()
+
+round(whites.cor, 2)
+
+```
+
+
+```{r prep for ggpairs, echo=TRUE}
+
+# whites
+
+whites.subset <- subset(whites,select=-X) #improve readability
+#whites.subset$quality <- as.numeric(whites.subset$quality) #to get correlation
+
+# create sample so it's faster to run
+set.seed(888)
+whites.samp <- whites.subset[sample(1:nrow(whites.subset), 1000), ]
+
+
+```
+
+
+
+```{r ggpairs}
+
+ggpairs(data = whites.samp,
+        columns =2:12,
+        axisLabels = 'show',
+        lower = list(continuous = wrap("smooth", alpha=0.2, shape = I('.'), alpha = 0.1)), 
+        upper = list(combo = wrap("box", outlier.shape = I('.'))))
+
+
+
+```
+
+## `quality` counts by...
+
+### `residual.sugar` level
+
+```{r}
+
+table(whites$rs.level)
+
+```
+
+
+
+```{r}
+
+d = ggplot(aes(quality), data =whites)
+
+d + 
+  geom_bar(aes(fill=quality)) +
+  facet_wrap(~rs.level)
+
+```
+
+There seem to be a higher proportion of high-scoring wines in the low-residual.sugar group.
+
+
+```{r}
+
+with(whites, by(quality, rs.level, summary))
+
+```
+
+
+### `alcohol` level
+
+```{r}
+
+table(whites$alvarinho.range)
+
+```
+
+
+```{r}
+
+d + 
+  geom_bar(aes(fill=quality)) +
+  facet_wrap(~alvarinho.range)
+
+```
+
+```{r}
+
+d + 
+  geom_bar(aes(fill=quality)) +
+  facet_grid(rs.level~alvarinho.range)
+
+```
+
+So how I read this:
+
+* higher alcohol == greater % of high-scoring wines
+* Within higher alcohol group, wines with high residual.sugar have bigger proportion of high-scores.
+* For lower alcohol group, it's the reverse!
+
+
+```{r}
+
+whites %>% 
+  group_by(rs.level, alvarinho.range, quality) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = round((n / sum(n) * 100), digits = 2))
+
+
+```
+
+
+## `quality` vs...
+
+### `alcohol`
+
+```{r alcohol_vs_quality}
+
+d <- ggplot(aes(alcohol, fill=quality), data=whites)
+dnsty <- geom_density(alpha=0.2)
+
+d + dnsty
+
+```
+
+It looks lower alcohol wines have a much greater tendency to lower quality. The highest quality generic (low-alcohol) wines are near the upper end of the alcohol limit for generic vinho verde.
+
+Also, higher-quality (>=7) wines have distinctly multi-modal distributions (bimodal for level 9). Low-quality wines don't have a clear mode, but do have long tails. 
+
+
+### `log10.rs` 
+
+```{r}
+
+d %+% aes(x = log10.rs) + dnsty
+
+```
+
+It isn't as clear-cut as for alcohol. 
+
+Here we see bimodal distribtuions at all quality levels. Level 8 seems to have 3 in fact.
+
+In general,the highest proportion of high quality wines reside at the lower-end of `log10.rs`.
+
+
+### `log10.chlorides`
+
+```{r quality_vs_log10.chlorides}
+
+d %+% aes(x=log10.chlorides) + 
+  dnsty
+
+```
+
+
+```{r}
+
+violin <- geom_violin(alpha = 0.2, draw_quantiles = .5)
+jitter <- geom_jitter(alpha = 0.1)
+
+d %+% aes(x=quality, y=log10.chlorides) +
+  violin + jitter
+```
+
+From quality level 5 (maybe 4 too), `log10.chlorides` has a negative correlation with quality that grows stronger for top-end wines.
+
+```{r}
+
+with(whites, by(log10.chlorides, quality, median))
+
+```
+
+
+### `total.sulfur.dioxide`
+
+```{r}
+
+d %+% aes(total.sulfur.dioxide) + 
+  dnsty
+
+```
+
+```{r}
+
+d %+% aes(quality, total.sulfur.dioxide) + violin + jitter
+                 
+```
+
+Generally there's a negative correlation with `quality`, but level 4 bucks the trend. But this relationship seems weaker for higher quality wines.
+
+Let's confirm by comparing medians.
+
+```{r compare_summary_total.sulfur.dioxide}
+
+with(whites, by(total.sulfur.dioxide,quality, median))
+
+```
+
+### `volatile.acidity`
+
+```{r}
+
+
+d <- ggplot(aes(volatile.acidity, fill=quality), data = whites)
+d + dnsty
+
+```
+
+
+
+```{r}
+
+d <- d %+% aes(log10(volatile.acidity))
+d + dnsty
+
+```
+
+Not much more illuminating.
+
+```{r}
+
+d <- d %+% aes(x=quality, y=log10(volatile.acidity), fill=quality)
+
+d + violin + jitter +
+  coord_cartesian(ylim=c(.985, 1.01))
+
+```
+
+No clear relationship with `quality`!
+
+## `alcohol` vs..
+
+### `log10.rs`
+
+```{r alcohol_log10.rs}
+
+d <- ggplot(aes(alcohol, log10.rs), data = whites)
+
+d + geom_point(alpha = 0.2)
+
+```
+
+There are two clusters: 
+
+* a higher-rs group that has a clear negative correlation between sugar & alcohol
+* a lower-rs group for which the correlation is less apparent. 
+
+Let's add some trend lines to these two clusters.
+
+```{r show_converging_trends}
+
+ss.rs = stat_smooth(aes(color = rs.level), method = 'lm')
+d + 
+  geom_point(alpha = 0.2) + 
+  ss.rs
+
+```
+
+
+There's an inverse relationship between residual.sugar and alcohol.
+
+At the lowest alcohol levels there is a much greater proportion of high residual.sugar wines.
+Beyond 10% alcohol, low residual.sugar wines become the majority, although not to the same extent.
+
+Here's another way to represent it.
+
+```{r}
+
+d <- ggplot(aes(alcohol, fill=rs.level), data = whites)
+
+d + dnsty
+
+```
+
+### `density`
+
+```{r}
+
+d <- ggplot(aes(alcohol, density), data = whites)
+
+d + geom_hex()
+
+```
+
+### `log10.chlorides`
+
+```{r}
+
+d <- ggplot(aes(alcohol, log10.chlorides), data = whites)
+
+d + geom_hex()
+
+```
+
+This relationship by contrast looks linear for the entire dataset.
+
+Let's confirm.
+
+```{r single trendline}
+
+d + geom_hex() + 
+  stat_smooth(method = 'lm')
+
+```
+
+
+```{r trendline by rs.level}
+
+d + geom_hex() + 
+  ss.rs
+
+```
+
+
+### `total.sulfur.dioxide`
+
+```{r}
+
+d <- d %+% aes(alcohol, total.sulfur.dioxide) 
+d + geom_hex()
+
+```
+
+Here I think we're back to clusters, especially when I look back at the quality distributions for `total.sulfur.dioxide`.
+
+```{r}
+
+d + geom_hex() + ss.rs
+
+```
+
+### `volatile.acidity`
+
+```{r}
+
+d <- d %+% aes(y = volatile.acidity)
+d + geom_hex() + ss.rs
+
+```
+
+
+## `log10.rs` vs..
+
+### `log10.chlorides`
+
+```{r residual.sugar_vs_log10.chlorides}
+
+d <- d %+% aes(x = log10.rs, y = log10.chlorides)
+
+d + geom_hex()
+
+```
+
+Definitely clustered.
+
+```{r}
+
+d + geom_hex() + ss.rs
+
+```
+
+### `total.sulfur.dioxide`
+
+```{r log10.rs_vs_`total.sulfur.dioxide`}
+
+d <- d %+% aes(y = total.sulfur.dioxide) 
+d + geom_hex()
+
+```
+
+### `volatile.acidity`
+
+
+```{r}
+
+d <- d %+% aes(y = volatile.acidity)
+d + geom_hex() + ss.rs
+
+```
+
+
+
+## `log10.chlorides` vs...
+
+### `total.sulfur.dioxide`
+
+```{r log10.chlorides_vs_total.sulfur.dioxide}
+
+d <-  d %+% aes(log10.chlorides, total.sulfur.dioxide)
+
+d + geom_hex() + ss.rs
+
+
+```
+
+This just reinforces what we saw earlier. Both of these variables have negative correlations with `alcohol` and `quality`, so it's not surprising they have a positive relationship with each other.
+
+### `volatile.acidity`
+
+```{r}
+
+d <-  d %+% aes(y = volatile.acidity)
+
+d + geom_hex() + ss.rs
+
+```
+
+There's a slight positive correlation, but there's also a lot of noise.
+
+
+## `total.sulfur.dioxide` vs 
+
+### `volatile.acidity`
+
+```{r}
+
+d <-  ggplot(aes(total.sulfur.dioxide, volatile.acidity), data = whites)
+
+d + geom_hex() 
+#+ ss.rs
+
+```
+
 # Bivariate Analysis
 
-> **Tip**: As before, summarize what you found in your bivariate explorations
-here. Use the questions below to guide your discussion.
 
 ### Talk about some of the relationships you observed in this part of the \
 investigation. How did the feature(s) of interest vary with other features in \
 the dataset?
 
+* Quality tends to increase with alcohol, but decrease with chlorides and total.sulfur.dioxide
+
+* At all alcohol levels, there seems to be two subsets, a lower residual.sugar group (log10.rs < 0.5) and a higher one:
+
+  * There is far more high-rs wines at lower alcohol levels (alcohol < 10%).
+  * The lower rs group has a slight negative correlation with alcohol. 
+  * On the other hand, the higher rs group has a barely perceptible positive correlation.
+
+* chlorides and log10.rs also have diverging trendlines for high & low rs groups:
+  * high rs wines gently increase in chlorides as alcohol increases
+  * low rs wines show a slight decrease in chlorides as alcohol increases
+
+* volatile.acidity also has a slightly divergent trendline with log10.rs, in that the low-rs group has a  
+
+
 ### Did you observe any interesting relationships between the other features \
 (not the main feature(s) of interest)?
 
 ### What was the strongest relationship you found?
+
+From the ggpairs plot, residual.sugar and density. 
 
 
 # Multivariate Plots Section
@@ -585,9 +1151,207 @@ create here are justified by the plots you explored in the previous section. If
 you plan on creating any mathematical models, this is the section where you
 will do that.
 
+
+
+```{r}
+
+
+whites %>% 
+  group_by(rs.level) %>% 
+  count()
+```
+
+```{r}
+
+
+whites %>% 
+  group_by(rs.level, qual.grp) %>% 
+  count()
+```
+
+
 ```{r echo=FALSE, Multivariate_Plots}
 
+d = ggplot(aes(alcohol, log10.rs), data =whites)
+d + 
+  geom_point(aes(colour=quality), alpha = 0.5) + 
+  stat_smooth(aes(colour=quality), method = 'lm', se=FALSE) +
+  facet_grid(rs.level ~ alvarinho.range, scales = 'free')
 ```
+
+In most cases, the better wines have less sugar as alcohol increases. 
+The exception: low-residual sugar, high-alcohol wines (bottom right panel, above).
+
+```{r}
+
+d <- d %+% aes(x = alcohol, y = log10.rs)
+
+d + 
+  geom_point(aes(colour=quality), alpha = 0.5) + 
+  facet_grid(quality ~ rs.level, scales = 'free')
+
+
+```
+
+## total.sulfur.dioxide by log10.chlorides
+
+```{r}
+
+d = ggplot(aes(total.sulfur.dioxide, log10.chlorides), data =whites)
+d + 
+  geom_point(aes(colour=quality), alpha = 0.5) + 
+  facet_wrap(~quality, ncol = 1, scales='free_y')
+
+```
+
+Interesting: as quality improves, the _range_ for `total.sulfur.dioxide` & `log10.chlorides` becomes much narrower.
+
+Does this hold true when we facet this by sugar?
+
+```{r facet_by_residual.sugar}
+
+d = ggplot(aes(total.sulfur.dioxide, log10.chlorides), data =whites)
+d + 
+  geom_point(aes(colour=quality), alpha = 0.5) + 
+  facet_grid(quality ~ rs.level, scales='free_y')
+
+```
+
+Yes, particularly for low residual sugar wines.
+
+Let's facet by alcohol now.
+
+```{r facet_by_alchol_range}
+
+d +
+  geom_point( aes(colour=quality), alpha = 0.5) + 
+  facet_grid(quality ~ alvarinho.range, scales = 'free_y')
+
+
+```
+
+Yes for the low-alcohol wines (FALSE column): for each step up the `quality` ladded, the minimum `total.sulfur.dioxide` increases & while the maximum decreases.
+
+For high-alcohol wines, the notion of an 'ideal range' of `total.sulfur.dioxide` in top-quality wines still holds true, but not as clearly-defined.
+
+The 'ideal range' for `log10.chlorides` is more difficult to see here.
+
+```{r}
+
+d <- ggplot(aes(quality, log10.chlorides), data = whites)
+
+d + 
+  geom_boxplot(aes(fill = quality), alpha = 0.5) +
+  facet_wrap(~rs.level)
+
+```
+
+In both cases, the best wines have fewer chlorides, but not necessarily the least.
+
+Let's break this down further.
+
+```{r}
+
+d %+% aes(quality, log10.chlorides) +
+  geom_boxplot(aes(fill = quality), alpha = 0.5) +
+  facet_grid(alvarinho.range~rs.level)
+```
+
+
+This is a cleaner way to see it.
+
+```{r}
+
+d %+% aes(quality, total.sulfur.dioxide) +
+  geom_boxplot(aes(fill = quality), alpha = 0.5) +
+  facet_grid(alvarinho.range~rs.level)
+
+```
+
+There's a relationship between `quality` & `total.sulfur.dioxide` for high-residual sugar wines. 
+
+The _direction_ of the relationship, however, depends on whether the wine is high- or low-alcohol.
+
+## density vs alcohol
+
+```{r}
+
+d <- ggplot(aes(alcohol, density), data = whites)
+
+d + 
+  geom_point(aes(color = quality), alpha = 0.5) +
+  facet_grid(alvarinho.range~rs.level)
+
+```
+
+## total.sulfur.dioxide & volatile.acidity
+
+```{r}
+
+d %+% aes(volatile.acidity, total.sulfur.dioxide) +
+  geom_point(aes(color = quality), alpha = 0.5) + 
+  facet_grid(quality~rs.level, scales='free_y')
+
+```
+
+
+```{r}
+
+d %+% aes(quality, volatile.acidity) +
+  geom_boxplot(aes(fill = quality), alpha = 0.5) +
+  facet_grid(alvarinho.range~rs.level)
+
+```
+
+If we measure distance from median quality 9, how well will it correlate with quality?
+
+```{r}
+with(whites, by(total.sulfur.dioxide, quality, summary))
+```
+
+
+```{r}
+
+df = filter(whites, quality == 9)
+ideal.CI <- median(df$log10.chlorides)
+ideal.SO2 <- median(df$total.sulfur.dioxide)
+```
+
+
+```{r}
+
+whites <- whites %>% 
+  mutate(so2.ideal.dist = abs(total.sulfur.dioxide - ideal.SO2),
+         ci.ideal.dist = abs(log10.chlorides - ideal.CI))
+
+```
+
+
+
+
+```{r}
+
+whites %>% 
+  #filter(rs.level == 'low') %>% 
+  ggplot(aes(density, alcohol)) + geom_point(alpha = 0.5, aes(color = quality)) + 
+  geom_smooth(method = 'lm', se=FALSE) +
+  coord_cartesian(xlim = c(.985, 1.005)) +
+  facet_grid(~quality, scale = 'free_y')
+  
+  
+```
+
+
+```{r}
+
+d %+% aes(x=alcohol, y = density  ) +
+  geom_point(aes(colour=quality), alpha = 0.5) + 
+  facet_grid(quality ~ rs.level, scales = 'free_y')
+
+
+
+```
+
 
 # Multivariate Analysis
 
